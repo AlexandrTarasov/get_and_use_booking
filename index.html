@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger — Booking Calendar</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #FBF9F4;
+    --surface: #FFFFFF;
+    --ink: #21302C;
+    --ink-soft: #6C7C77;
+    --line: #E4DFD2;
+    --pending: #C1792C;
+    --pending-soft: #FBEFDC;
+    --confirm: #2F5D50;
+    --confirm-soft: #E5EEE8;
+    --decline: #AF4A3C;
+    --decline-soft: #F7E6E2;
+  }
+  html.dark {
+    --bg: #1B211F;
+    --surface: #232A28;
+    --ink: #EDEAE1;
+    --ink-soft: #9AA7A2;
+    --line: #39423F;
+    --pending: #E0A24B;
+    --pending-soft: #3A2E1C;
+    --confirm: #6FBFA1;
+    --confirm-soft: #20332C;
+    --decline: #E08575;
+    --decline-soft: #3A2420;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: background .2s ease, color .2s ease;
+  }
+  .disp { font-family: 'Fraunces', serif; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  .topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .brand-mark { display: flex; align-items: baseline; gap: 10px; }
+  .brand-mark h1 { font-size: 28px; font-weight: 600; font-style: italic; margin: 0; }
+  .brand-mark span { font-size: 12px; color: var(--ink-soft); letter-spacing: .06em; text-transform: uppercase; }
+
+  .toggle-row { display: flex; gap: 8px; }
+  .toggle-group { display: flex; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 3px; background: var(--surface); }
+  .toggle-group button {
+    border: none; background: transparent; color: var(--ink-soft);
+    font-size: 12.5px; font-family: inherit; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  }
+  .toggle-group button.active { background: var(--confirm-soft); color: var(--confirm); font-weight: 600; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .tabs button {
+    border: none; background: transparent; color: var(--ink-soft); font-family: inherit;
+    font-size: 13.5px; font-weight: 500; padding: 10px 4px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tabs button.active { color: var(--ink); border-bottom-color: var(--confirm); font-weight: 600; }
+  .role-note { font-size: 11.5px; color: var(--ink-soft); margin: -10px 0 18px; }
+
+  .nav { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .nav button {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); cursor: pointer; font-size: 14px;
+  }
+  .nav button:hover { background: var(--confirm-soft); }
+  .nav .range { font-size: 14px; font-weight: 500; min-width: 170px; }
+
+  .legend { display: flex; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-soft); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .body-layout { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+
+  .grid-wrap { flex: 1; min-width: 320px; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .grid { display: grid; grid-template-columns: 56px repeat(7, minmax(110px, 1fr)); min-width: 860px; }
+
+  .head-cell { padding: 12px 6px; text-align: center; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .head-cell:first-child { border-left: none; }
+  .head-cell .dow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+  .head-cell .num { font-family: 'Fraunces', serif; font-size: 19px; margin-top: 2px; }
+  .head-cell.today .num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--confirm); color: #fff; }
+
+  .time-cell { height: 64px; font-size: 11px; color: var(--ink-soft); text-align: right; padding-right: 8px; transform: translateY(-6px); }
+  .time-cell:first-child { transform: none; }
+
+  .day-col {
+    position: relative; border-left: 1px solid var(--line);
+    background-image: repeating-linear-gradient(to bottom, transparent, transparent 63px, var(--line) 63px, var(--line) 64px);
+  }
+
+  .ticket {
+    position: absolute; left: 5px; right: 5px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--surface); box-shadow: 0 1px 2px rgba(33,48,44,0.06);
+    padding: 7px 9px 7px 16px; display: flex; flex-direction: column; gap: 2px; overflow: hidden;
+  }
+  .ticket::before { content: ''; position: absolute; left: 10px; top: 4px; bottom: 4px; border-left: 1.5px dashed var(--line); }
+  .ticket.pending { border-color: var(--pending); }
+  .ticket.confirmed { border-color: var(--confirm); }
+  .ticket.declined { opacity: .55; }
+  .ticket .client { font-family: 'Fraunces', serif; font-size: 13px; font-weight: 600; line-height: 1.15; }
+  .ticket .time { font-size: 10px; color: var(--ink-soft); margin-top: 1px; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; width: fit-content; }
+  .badge.pending { background: var(--pending-soft); color: var(--pending); }
+  .badge.confirmed { background: var(--confirm-soft); color: var(--confirm); }
+  .badge.declined { background: var(--decline-soft); color: var(--decline); }
+  .actions { display: flex; gap: 5px; margin-top: 2px; }
+  .actions button { flex: 1; font-size: 10px; font-weight: 600; border-radius: 6px; padding: 3px 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .actions button.accept:hover { background: var(--confirm); border-color: var(--confirm); color: #fff; }
+  .actions button.decline:hover { background: var(--decline); border-color: var(--decline); color: #fff; }
+  .undo { font-size: 10px; color: var(--ink-soft); background: none; border: none; cursor: pointer; padding: 0; margin-top: 2px; }
+  .undo:hover { color: var(--ink); }
+
+  .rail { width: 270px; flex-shrink: 0; }
+  .rail h2 { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+  .rail .sub { font-size: 12px; color: var(--ink-soft); margin-bottom: 12px; }
+  .req-card { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 11px 12px; margin-bottom: 10px; }
+  .req-card .client { font-size: 13px; font-weight: 600; }
+  .req-card .when { font-size: 11px; color: var(--pending); margin: 4px 0 8px; font-weight: 500; }
+  .req-card .contact { font-size: 11px; color: var(--ink-soft); margin: -4px 0 8px; word-break: break-all; }
+  .empty { font-size: 12.5px; color: var(--ink-soft); border: 1px dashed var(--line); border-radius: 10px; padding: 16px; text-align: center; }
+
+  .sep { height: 1px; background: var(--line); margin: 18px 0; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 3px; }
+  .field input, .field select {
+    width: 100%; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font-family: inherit; font-size: 13px;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--confirm); outline-offset: 1px; }
+  .book-btn {
+    width: 100%; border: none; background: var(--confirm); color: #fff; font-weight: 600;
+    font-size: 13.5px; padding: 10px 0; border-radius: 8px; cursor: pointer; margin-top: 4px;
+  }
+  .book-btn:hover { opacity: .92; }
+  .error-msg { font-size: 12px; color: var(--decline); background: var(--decline-soft); border-radius: 7px; padding: 8px 10px; margin-top: 8px; display: none; }
+  .error-msg.show { display: block; }
+  .success-msg { font-size: 12px; color: var(--confirm); background: var(--confirm-soft); border-radius: 7px; padding: 8px 10px; margin-top: 8px; display: none; }
+  .success-msg.show { display: block; }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    align-items: center; justify-content: center; z-index: 50; padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 24px; width: 100%; max-width: 320px;
+  }
+  .modal-box h3 { font-family: 'Fraunces', serif; font-size: 17px; margin: 0 0 4px; }
+  .modal-box p.hint { font-size: 12px; color: var(--ink-soft); margin: 0 0 14px; }
+  .modal-box input {
+    width: 100%; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); font-family: inherit; font-size: 13.5px; letter-spacing: 1px;
+  }
+  .modal-box input:focus { outline: 2px solid var(--confirm); outline-offset: 1px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .modal-actions button { flex: 1; border-radius: 7px; padding: 8px 0; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .modal-cancel { background: transparent; border: 1px solid var(--line); color: var(--ink-soft); }
+  .modal-submit { background: var(--confirm); border: 1px solid var(--confirm); color: #fff; }
+  .modal-submit:disabled { opacity: .5; cursor: not-allowed; }
+  .modal-error { font-size: 12px; color: var(--decline); margin-top: 10px; min-height: 14px; }
+
+  @media (max-width: 760px) {
+    .body-layout { flex-direction: column-reverse; }
+    .rail { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand-mark">
+      <h1 class="disp">Ledger</h1>
+      <span id="tagline">booking calendar</span>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-group">
+        <button id="enBtn" class="active">EN</button>
+        <button id="ruBtn">RU</button>
+      </div>
+      <div class="toggle-group">
+        <button id="lightBtn" class="active">Light</button>
+        <button id="darkBtn">Dark</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button id="custTab" class="active">Book a session</button>
+    <button id="adminTab">Administrator</button>
+  </div>
+  <p class="role-note" id="roleNote"></p>
+
+  <div class="nav">
+    <button id="prevBtn" aria-label="Previous week">&#8249;</button>
+    <span class="range" id="rangeLabel"></span>
+    <button id="nextBtn" aria-label="Next week">&#8250;</button>
+  </div>
+
+  <div class="legend">
+    <span class="legend-item"><span class="dot" style="background:var(--pending)"></span><span id="legPending"></span></span>
+    <span class="legend-item"><span class="dot" style="background:var(--confirm)"></span><span id="legConfirmed"></span></span>
+    <span class="legend-item"><span class="dot" style="background:var(--decline)"></span><span id="legDeclined"></span></span>
+  </div>
+
+  <div class="body-layout">
+    <div class="grid-wrap">
+      <div class="grid" id="calGrid"></div>
+    </div>
+
+    <div class="rail">
+
+      <div id="custSidebar" class="view active">
+        <h2 id="nbTitle"></h2>
+        <p class="sub" id="nbSub"></p>
+        <div class="field">
+          <label for="fClient" id="lblName"></label>
+          <input type="text" id="fClient">
+        </div>
+        <div class="field">
+          <label for="fContactType" id="lblContact"></label>
+          <select id="fContactType" style="margin-bottom:6px">
+            <option value="phone">Phone number</option>
+            <option value="email">Email</option>
+            <option value="telegram">Telegram link</option>
+            <option value="whatsapp">WhatsApp link</option>
+          </select>
+          <input type="text" id="fContactValue">
+        </div>
+        <div class="field">
+          <label for="fDay" id="lblDay"></label>
+          <select id="fDay"></select>
+        </div>
+        <div class="field">
+          <label for="fStart" id="lblStart"></label>
+          <select id="fStart"></select>
+        </div>
+        <div class="field">
+          <label for="fDur" id="lblDur"></label>
+          <select id="fDur"></select>
+        </div>
+        <button class="book-btn" id="bookBtn"></button>
+        <div class="error-msg" id="errMsg"></div>
+        <div class="success-msg" id="okMsg"></div>
+      </div>
+
+      <div id="adminSidebar" class="view">
+        <h2 id="reqTitle"></h2>
+        <p class="sub" id="reqSub"></p>
+        <div id="reqList"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="pwOverlay">
+  <div class="modal-box">
+    <h3 id="pwTitleEl"></h3>
+    <p class="hint" id="pwHintEl"></p>
+    <input type="password" id="pwInput" autocomplete="off">
+    <div class="modal-error" id="pwError"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" id="pwCancel"></button>
+      <button class="modal-submit" id="pwSubmit"></button>
+    </div>
+  </div>
+</div>
+
+<!--
+  data.js must load before app.js: app.js calls loadAppointments() and
+  nextAppointmentId() from data.js as soon as it runs.
+-->
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
